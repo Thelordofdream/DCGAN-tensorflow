@@ -8,7 +8,7 @@ from utils import *
 
 class DCGAN(object):
     def __init__(self, sess, image_size=108, is_crop=True,
-                 batch_size=64, sample_size = 64, image_shape=[64, 64, 3],
+                 batch_size=64, sample_size = 64, image_shape=None,
                  y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
                  checkpoint_dir=None):
@@ -25,6 +25,8 @@ class DCGAN(object):
             dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
             c_dim: (optional) Dimension of image color. [3]
         """
+        if image_shape is None:
+            image_shape = [64, 64, 3]
         self.sess = sess
         self.is_crop = is_crop
         self.batch_size = batch_size
@@ -197,7 +199,7 @@ class DCGAN(object):
             yb = tf.reshape(y, [None, 1, 1, self.y_dim])
             x = conv_cond_concat(image, yb)
 
-            h0 = lrelu(spatial_conv(x, self.c_dim + self.y_dim))
+            h0 = lrelu(conv2d(x, self.c_dim + self.y_dim))
             h0 = conv_cond_concat(h0, yb)
 
             h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim + self.y_dim)))
@@ -274,14 +276,14 @@ class DCGAN(object):
             yb = tf.reshape(y, [None, 1, 1, self.y_dim])
             z = tf.concat(1, [z, y])
 
-            h0 = tf.nn.relu(self.bn0(linear(z, self.gfc_dim, 'g_h0_lin')))
+            h0 = tf.nn.relu(self.g_bn0(linear(z, self.gfc_dim, 'g_h0_lin')))
             h0 = tf.concat(1, [h0, y])
 
             h1 = tf.nn.relu(self.g_bn1(linear(z, self.gf_dim*2*7*7, 'g_h1_lin')))
             h1 = tf.reshape(h1, [None, 7, 7, self.gf_dim * 2])
             h1 = conv_cond_concat(h1, yb)
 
-            h2 = tf.nn.relu(self.bn2(deconv2d(h1, self.gf_dim, name='g_h2')))
+            h2 = tf.nn.relu(self.g_bn2(deconv2d(h1, self.gf_dim, name='g_h2')))
             h2 = conv_cond_concat(h2, yb)
 
             return tf.nn.sigmoid(deconv2d(h2, self.c_dim, name='g_h3'))
